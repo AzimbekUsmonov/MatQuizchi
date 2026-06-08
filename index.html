@@ -447,12 +447,18 @@ label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: 
     <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
     Telegram orqali kirish
   </button>
-  <p class="login-note">Telegram WebApp orqali xavfsiz autentifikatsiya</p>
+  <p class="login-note">Telegram botdan ochish tavsiya etiladi</p>
   
-  <!-- Dev mode bypass -->
-  <button onclick="devLogin()" style="margin-top:16px;background:none;border:1px dashed var(--border);color:var(--muted);padding:8px 20px;border-radius:10px;cursor:pointer;font-family:var(--font-mono);font-size:11px;">
+  <!-- Dev mode bypass - faqat localhost da ko'rinadi -->
+  <button onclick="devLogin()" id="dev-btn" style="margin-top:16px;background:none;border:1px dashed var(--border);color:var(--muted);padding:8px 20px;border-radius:10px;cursor:pointer;font-family:var(--font-mono);font-size:11px;display:none;">
     🔧 Dev kirish (test)
   </button>
+  <script>
+    // Faqat localhost da dev tugmani ko'rsatish
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      document.getElementById('dev-btn').style.display = 'block';
+    }
+  </script>
 </div>
 
 <!-- MAIN APP -->
@@ -756,6 +762,7 @@ let lbCurrentTab = 'overall';
 function loginWithTelegram() {
   const tg = window.Telegram?.WebApp;
   if (tg && tg.initDataUnsafe?.user) {
+    // Telegram WebApp ichidan ochilgan
     const u = tg.initDataUnsafe.user;
     handleUserLogin({
       id: u.id,
@@ -765,7 +772,14 @@ function loginWithTelegram() {
       isBot: false
     });
   } else {
-    showToast('Telegram WebApp topilmadi. Dev kirish ishlating.', 'error');
+    // Oddiy brauzerda ochilgan — avtomatik dev kirish
+    handleUserLogin({
+      id: '0000000001',
+      name: 'Mehmon',
+      username: 'mehmon',
+      avatar: '😊',
+      isBot: false
+    });
   }
 }
 
