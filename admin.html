@@ -578,38 +578,54 @@ let allUsers = [];
 //  AUTH
 // ============================================================
 async function adminLogin() {
-  const tg = window.Telegram?.WebApp;
-  let uid = null, name = 'Admin', avatar = '👑';
+  try {
+    const tg = window.Telegram?.WebApp;
+    let tgId = null, name = 'Admin';
 
-  if (tg && tg.initDataUnsafe?.user) {
-    uid = String(tg.initDataUnsafe.user.id);
-    name = tg.initDataUnsafe.user.first_name;
-  } else {
-    // DEV: birinchi admin ID ni ishlatish
-    uid = ADMIN_IDS[0];
-    name = 'Dev Admin';
-  }
+    if (tg && tg.initDataUnsafe?.user) {
+      tgId = String(tg.initDataUnsafe.user.id);
+      name = tg.initDataUnsafe.user.first_name;
+    }
 
-  // Admin listdan tekshirish (Firestore)
-  const adminsSnap = await db.collection('settings').doc('admins').get();
-  const adminList = adminsSnap.exists ? (adminsSnap.data().ids || []) : ADMIN_IDS;
+    // Firebase anonymous auth
+    const cred = await auth.signInAnonymously();
+    const firebaseUid = cred.user.uid;
 
-  if (!adminList.includes(uid)) {
-    document.getElementById('admin-login-err').textContent = '🚫 Siz admin emassiz!';
+    // 1. Agar telegram ID ADMIN_IDS ichida bo'lsa - admins kolleksiyasiga yozamiz
+    if (tgId && ADMIN_IDS.includes(tgId)) {
+      await db.collection('admins').doc(firebaseUid).set({
+        isAdmin: true, telegramId: tgId, name,
+        addedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    // 2. admins kolleksiyasidan tekshiramiz
+    const adminSnap = await db.collection('admins').doc(firebaseUid).get();
+    const isAdminDoc = adminSnap.exists && adminSnap.data().isAdmin === true;
+
+    // 3. DEV mode - Firestore da admin doc bo'lmasa ham ADMIN_IDS ichidagi tgId bilan
+    const isDevAdmin = !tgId; // Telegram yo'q = dev mode
+
+    if (!isAdminDoc && !isDevAdmin) {
+      document.getElementById('admin-login-err').textContent = '🚫 Siz admin emassiz! Telegram ID: ' + (tgId || 'noma'lum');
+      document.getElementById('admin-login-err').style.display = 'block';
+      return;
+    }
+
+    adminUser = { uid: firebaseUid, telegramId: tgId, name };
+    document.getElementById('admin-login').style.display = 'none';
+    document.getElementById('admin-shell').style.display = 'flex';
+    document.getElementById('admin-name-top').textContent = name;
+    document.getElementById('admin-info-sidebar').textContent = '👑 ' + name;
+
+    loadDashboard();
+    loadSettings();
+    loadBroadcastHistory();
+
+  } catch(e) {
+    document.getElementById('admin-login-err').textContent = 'Xato: ' + e.message;
     document.getElementById('admin-login-err').style.display = 'block';
-    return;
   }
-
-  adminUser = { uid, name, avatar };
-  document.getElementById('admin-login').style.display = 'none';
-  document.getElementById('admin-shell').style.display = 'flex';
-  document.getElementById('admin-name-top').textContent = name;
-  document.getElementById('admin-info-sidebar').textContent = '👑 ' + name;
-
-  // Load initial data
-  loadDashboard();
-  loadSettings();
-  loadBroadcastHistory();
 }
 
 function adminLogout() {

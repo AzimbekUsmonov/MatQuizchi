@@ -8,6 +8,9 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -767,8 +770,9 @@ function loginWithTelegram() {
 }
 
 function devLogin() {
+  // Dev mode - oddiy raqamli ID ishlatamiz
   handleUserLogin({
-    id: 'dev_' + Date.now(),
+    id: '0000000001',
     name: 'Dev Foydalanuvchi',
     username: 'dev_user',
     avatar: '🧑‍💻',
@@ -778,17 +782,21 @@ function devLogin() {
 
 async function handleUserLogin(tgUser) {
   try {
-    // Firebase anonymous auth bilan birlashtiramiz
+    // 1. Firebase anonymous auth
     const credential = await auth.signInAnonymously();
-    const uid = tgUser.id.toString();
+    const firebaseUid = credential.user.uid; // Firebase auth UID
+    const tgId = tgUser.id.toString();       // Telegram ID (alohida saqlanadi)
 
-    // Foydalanuvchini DB ga saqlash / yangilash
-    const userRef = db.collection('users').doc(uid);
+    // Doc ID sifatida Firebase UID ishlatamiz (Rules bilan mos kelishi uchun)
+    const userRef = db.collection('users').doc(firebaseUid);
     const snap = await userRef.get();
 
     if (!snap.exists) {
       await userRef.set({
-        uid, name: tgUser.name, username: tgUser.username,
+        uid: firebaseUid,
+        telegramId: tgId,
+        name: tgUser.name,
+        username: tgUser.username,
         avatar: tgUser.avatar,
         correct: 0, wrong: 0, xp: 0, level: 1, streak: 0,
         pvpWins: 0, pvpLoss: 0, pvpDraw: 0,
@@ -803,9 +811,8 @@ async function handleUserLogin(tgUser) {
       await userRef.update({ lastActive: firebase.firestore.FieldValue.serverTimestamp() });
     }
 
-    currentUser = { uid, ...tgUser, ...(snap.data() || {}) };
     const freshSnap = await userRef.get();
-    currentUser = { uid, ...tgUser, ...freshSnap.data() };
+    currentUser = { uid: firebaseUid, telegramId: tgId, ...tgUser, ...freshSnap.data() };
 
     // Hide login, show app
     document.getElementById('login-screen').style.display = 'none';
